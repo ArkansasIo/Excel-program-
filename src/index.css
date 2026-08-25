@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+.token.keyword { color: #d73a49; }
+.token.string { color: #032f62; }
+.token.number { color: #005cc5; }
+.token.function { color: #6f42c1; }
+.token.comment { color: #6a737d; }
+.token.operator { color: #d73a49; }
+

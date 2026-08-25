@@ -1,0 +1,6 @@
+{
+  "name": "SQL Excel System Explorer",
+  "description": "A simulated SQL/Excel database viewing 20 entries of byte data in decimal, hex, octal, binary, along with system metadata (types, logic, arrays, configs).",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

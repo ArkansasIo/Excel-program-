@@ -1,0 +1,98 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { FileSpreadsheet, Lock } from 'lucide-react';
+
+export default function Login() {
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('password');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        login(data.user);
+        navigate('/');
+      } else {
+        setError(data.message || 'Invalid credentials');
+      }
+    } catch (err) {
+      setError('An error occurred during login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center bg-gray-50 p-4">
+      <div className="bg-white p-8 rounded-lg shadow-md max-w-sm w-full border border-gray-200">
+        <div className="flex flex-col items-center mb-8">
+          <div className="p-3 bg-[#107c41] rounded-full mb-3 text-white">
+            <FileSpreadsheet className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">System Access</h2>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded text-sm mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">USERNAME</label>
+            <input 
+              type="text" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#107c41] focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">PASSWORD</label>
+            <input 
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#107c41] focus:border-transparent text-sm"
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-[#107c41] hover:bg-[#0c592e] text-white font-semibold py-2 px-4 rounded flex justify-center items-center transition-colors mt-2"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <Lock className="w-4 h-4 mr-2" /> 
+                Authenticate
+              </>
+            )}
+          </button>
+        </form>
+        <div className="mt-6 text-center text-xs text-gray-500">
+          Default credentials: <span className="font-mono bg-gray-100 border border-gray-200 px-1 py-0.5 rounded">admin</span> / <span className="font-mono bg-gray-100 border border-gray-200 px-1 py-0.5 rounded">password</span>
+        </div>
+      </div>
+    </div>
+  );
+}
