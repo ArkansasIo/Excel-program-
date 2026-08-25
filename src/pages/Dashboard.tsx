@@ -36,7 +36,7 @@ export default function Dashboard() {
   const [sheets, setSheets] = useState<Sheet[]>([initialSheet]);
   const [activeSheetId, setActiveSheetId] = useState('sheet-1');
   const [query, setQuery] = useState('SELECT * FROM sys_bytes WHERE size = 8;');
-  const [architecture, setArchitecture] = useState<number>(8); // 8, 16, 32, 64, 96, 128
+  const [architecture, setArchitecture] = useState<number>(8); // 8, 16, 32, 64, 96, 128, 256, 512, 1024
   
   const activeSheet = useMemo(() => sheets.find(s => s.id === activeSheetId) || sheets[0], [sheets, activeSheetId]);
   const records = activeSheet.records;
@@ -114,6 +114,7 @@ export default function Dashboard() {
   const [editingSheetId, setEditingSheetId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [showRowNumbers, setShowRowNumbers] = useState(true);
+  const [density, setDensity] = useState<'Compact' | 'Comfortable' | 'Relaxed'>('Comfortable');
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [byteNotation, setByteNotation] = useState<'decimal' | 'scientific' | 'fixed'>('decimal');
   const [rules, setRules] = useState<ConditionalRule[]>([]);
@@ -130,6 +131,76 @@ export default function Dashboard() {
   const [showDetailsPane, setShowDetailsPane] = useState(false);
   const [invalidValues, setInvalidValues] = useState<Record<number, string>>({});
   const tooltipRef = React.useRef<HTMLDivElement>(null);
+  const [columnOrder, setColumnOrder] = useState<string[]>([
+    'checkbox', 'rowNumber', 'id', 'rowId', 'byteSize', 'decValue', 'hex', 'octal', 'binary', 
+    'name', 'type', 'classStr', 'structures', 'modules', 'array', 'functions', 'logic', 
+    'configFiles', 'storageLocation'
+  ]);
+  const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent<HTMLTableHeaderCellElement>, columnId: string) => {
+    setDraggedColumn(columnId);
+    e.dataTransfer.setData('text/plain', columnId);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableHeaderCellElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTableHeaderCellElement>, targetColumnId: string) => {
+    e.preventDefault();
+    if (draggedColumn === targetColumnId) return;
+
+    const newOrder = [...columnOrder];
+    const fromIndex = newOrder.indexOf(draggedColumn!);
+    const toIndex = newOrder.indexOf(targetColumnId);
+
+    newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, draggedColumn!);
+    
+    setColumnOrder(newOrder);
+    setDraggedColumn(null);
+  };
+
+  const getHeader = (col: string) => {
+    switch (col) {
+      case 'checkbox': return <th className="border border-[#c8c6c4] bg-[#f3f2f1] w-8 sticky left-0 z-20"><input type="checkbox" onChange={(e) => {
+        if (e.target.checked) setSelectedRowIds(filteredData.map(r => r.id));
+        else setSelectedRowIds([]);
+      }} checked={filteredData.length > 0 && selectedRowIds.length === filteredData.length} /></th>;
+      case 'rowNumber': return showRowNumbers ? <th className="border border-[#c8c6c4] bg-[#f3f2f1] w-10 sticky left-[32px] z-20">#</th> : null;
+      case 'id': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">ID</th>;
+      case 'rowId': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Row ID</th>;
+      case 'byteSize': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Byte Size</th>;
+      case 'decValue': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700 w-24">Dec Value</th>;
+      case 'hex': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Hexadecimal</th>;
+      case 'octal': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Octal</th>;
+      case 'binary': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Binary</th>;
+      case 'name': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Name</th>;
+      case 'type': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Type</th>;
+      case 'classStr': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Class</th>;
+      case 'structures': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Structures</th>;
+      case 'modules': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Modules</th>;
+      case 'array': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Array</th>;
+      case 'functions': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Functions</th>;
+      case 'logic': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Logic</th>;
+      case 'configFiles': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Config Files</th>;
+      case 'storageLocation': return <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Storage Location</th>;
+      default: return null;
+    }
+  };
+
+  const getHeaderDraggable = (col: string) => {
+    const header = getHeader(col);
+    if (!header || col === 'checkbox' || col === 'rowNumber') return header;
+    
+    return React.cloneElement(header as React.ReactElement, {
+        draggable: true,
+        onDragStart: (e: React.DragEvent<HTMLTableHeaderCellElement>) => handleDragStart(e, col),
+        onDragOver: handleDragOver,
+        onDrop: (e: React.DragEvent<HTMLTableHeaderCellElement>) => handleDrop(e, col),
+    });
+  };
 
   const selectedRecord = useMemo(() => records.find(r => r.id === selectedRecordId) || null, [records, selectedRecordId]);
 
@@ -150,21 +221,24 @@ export default function Dashboard() {
     return Object.entries(counts).map(([type, count]) => ({ type, count }));
   }, [records]);
 
+  const checkMatch = (row: DataRecord, term: string) => {
+      if (!term.trim()) return false;
+      const terms = term.toLowerCase().split(' ').filter(t => t.length > 0);
+      const evalVal = evaluatedValues[row.id] || "0";
+      const rowText = Object.values(row).join(' ').toLowerCase() + ' ' + 
+                      BigInt(evalVal).toString(16).toLowerCase() + ' ' + 
+                      BigInt(evalVal).toString(2);
+      return terms.every(t => rowText.includes(t));
+  };
+
   const filteredData = useMemo(() => {
     let filtered = records;
     if (filterType !== 'All') {
       filtered = filtered.filter(row => row.type === filterType);
     }
     
-    if (!searchTerm) return filtered;
-    return filtered.filter(row => {
-      const evalVal = evaluatedValues[row.id] || "0";
-      return Object.values(row).some(val => 
-        String(val).toLowerCase().includes(searchTerm.toLowerCase())
-      ) || 
-      BigInt(evalVal).toString(16).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      BigInt(evalVal).toString(2).includes(searchTerm);
-    });
+    if (!searchTerm.trim()) return filtered;
+    return filtered.filter(row => checkMatch(row, searchTerm));
   }, [searchTerm, filterType, records, evaluatedValues]);
 
   const groupedData = useMemo(() => {
@@ -230,6 +304,49 @@ export default function Dashboard() {
     setSuggestion(null);
   };
 
+  const renderCell = (col: string, row: DataRecord, index: number, hexValue: string, octalValue: string, binaryValue: string, arrayValue: string, valueStyle: string, displayValue: string) => {
+    switch (col) {
+      case 'checkbox': return <td className="border border-[#c8c6c4] bg-[#f3f2f1] text-center sticky left-0 z-20 w-8 p-0">
+          <input type="checkbox" checked={selectedRowIds.includes(row.id)} onChange={() => {
+              setSelectedRowIds(prev => prev.includes(row.id) ? prev.filter(id => id !== row.id) : [...prev, row.id]);
+          }}/>
+      </td>;
+      case 'rowNumber': return showRowNumbers ? <td className="border border-[#c8c6c4] bg-[#f3f2f1] text-center text-gray-500 font-mono text-[10px] sticky left-[32px] group-hover:bg-[#e1dfdd] transition-colors z-10 w-10 h-full p-0">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <button onClick={() => deleteRecord(row.id)} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute" title="Delete Record"><Trash2 className="w-3.5 h-3.5" /></button>
+            <span className="group-hover:opacity-0 transition-opacity">{index + 1}</span>
+          </div>
+      </td> : null;
+      case 'id': return <td className="border border-[#c8c6c4] px-3 py-1.5 text-gray-600 text-xs">{row.id}</td>;
+      case 'rowId': return <td className="border border-[#c8c6c4] px-3 py-1.5 text-gray-600 text-xs">{row.rowId}</td>;
+      case 'byteSize': return <td className="border border-[#c8c6c4] px-3 py-1.5 text-gray-600 text-xs text-center">{getByteSize(row.type, architecture)}</td>;
+      case 'decValue': return <td className={`border border-[#c8c6c4] p-0 text-xs relative ${valueStyle}`}>
+         <input type="text" value={activeCellId === row.id ? row.value : displayValue}
+          onFocus={() => { setActiveCellId(row.id); setFormulaError(validateFormula(row.value)); }}
+          onBlur={() => { setActiveCellId(null); setFormulaError(null); setSuggestion(null); }}
+          onChange={(e) => handleFormulaChange(row.id, e.target.value)}
+          className={`w-full h-full min-h-[28px] px-3 font-mono font-medium bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-inset ${(formulaError && activeCellId === row.id) ? 'text-red-700 bg-red-50 focus:ring-red-600' : (row.value.startsWith('=') && evaluatedValues[row.id] === "0" && row.value !== "=0") ? 'text-red-700 bg-red-50 focus:ring-red-600' : 'text-blue-700 focus:ring-[#107c41]'}`}
+        />
+        {activeCellId === row.id && suggestion && <div className="absolute top-7 left-0 bg-white border border-gray-300 p-1 text-[10px] text-gray-800 z-50 cursor-pointer hover:bg-gray-100" onClick={() => acceptSuggestion(row.id, row.value, suggestion)}>Click to accept: {suggestion}</div>}
+        {activeCellId === row.id && formulaError && <div className="absolute top-7 left-0 bg-red-100 border border-red-300 p-1 text-[10px] text-red-700 z-50 w-full">{formulaError}</div>}
+      </td>;
+      case 'hex': return <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50"><input type="text" readOnly value={hexValue} className="w-full h-full min-h-[28px] px-3 font-mono text-purple-700 bg-transparent outline-none cursor-default" /></td>;
+      case 'octal': return <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50"><input type="text" readOnly value={octalValue} className="w-full h-full min-h-[28px] px-3 font-mono text-orange-700 bg-transparent outline-none cursor-default" /></td>;
+      case 'binary': return <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50"><input type="text" readOnly value={binaryValue} className="w-full h-full min-h-[28px] px-3 font-mono text-teal-700 tracking-widest bg-transparent outline-none cursor-default" /></td>;
+      case 'name': return <td className="border border-[#c8c6c4] p-0 text-xs"><input type="text" value={row.name} onChange={(e) => updateRecord(row.id, 'name', e.target.value)} className="w-full h-full min-h-[28px] px-3 font-medium text-gray-800 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-[#107c41]" /></td>;
+      case 'type': return <td className="border border-[#c8c6c4] p-0 text-xs"><select value={row.type} onChange={(e) => updateRecord(row.id, 'type', e.target.value)} className="w-full h-full min-h-[28px] px-2 text-[#107c41] bg-transparent outline-none focus:bg-white">{DATA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'classStr': return <td className="border border-[#c8c6c4] p-0 text-xs text-gray-600"><select value={row.classStr} onChange={(e) => updateRecord(row.id, 'classStr', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{CLASSES.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'structures': return <td className="border border-[#c8c6c4] p-0 text-xs italic text-gray-500"><select value={row.structures} onChange={(e) => updateRecord(row.id, 'structures', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{STRUCTURES.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'modules': return <td className="border border-[#c8c6c4] p-0 text-xs font-medium text-gray-700"><select value={row.modules} onChange={(e) => updateRecord(row.id, 'modules', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{MODULES.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'array': return <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50"><input type="text" readOnly value={arrayValue} className="w-full h-full min-h-[28px] px-3 font-mono text-gray-500 bg-transparent outline-none cursor-default" /></td>;
+      case 'functions': return <td className="border border-[#c8c6c4] p-0 text-xs font-mono text-pink-700"><select value={row.functions} onChange={(e) => updateRecord(row.id, 'functions', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{FUNCTIONS.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'logic': return <td className="border border-[#c8c6c4] p-0 text-xs font-medium text-indigo-700"><select value={row.logic} onChange={(e) => updateRecord(row.id, 'logic', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{LOGIC.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'configFiles': return <td className="border border-[#c8c6c4] p-0 text-xs font-mono text-gray-600"><select value={row.configFiles} onChange={(e) => updateRecord(row.id, 'configFiles', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{CONFIGS.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      case 'storageLocation': return <td className="border border-[#c8c6c4] p-0 text-xs text-gray-600"><select value={row.storageLocation} onChange={(e) => updateRecord(row.id, 'storageLocation', e.target.value)} className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white">{STORAGE_LOCATIONS.map(t => <option key={t} value={t}>{t}</option>)}</select></td>;
+      default: return null;
+    }
+  };
+
   const renderRow = (row: DataRecord, index: number) => {
     const rawEvalVal = evaluatedValues[row.id] || "0";
     let displayValue = rawEvalVal;
@@ -244,7 +361,8 @@ export default function Dashboard() {
     const binaryValue = BigInt(rawEvalVal).toString(2).padStart(architecture, '0');
     const arrayValue = `[${rawEvalVal}, ...]`
     
-    // Check for conditional formatting on 'value' field (which uses evalVal)
+    const isMatch = checkMatch(row, searchTerm);
+    
     const valueStyle = rules.some(r => r.field === 'value' && (
         (r.operator === '>' && Number(rawEvalVal) > r.threshold) ||
         (r.operator === '<' && Number(rawEvalVal) < r.threshold) ||
@@ -267,177 +385,12 @@ export default function Dashboard() {
           ? 'bg-amber-100 outline outline-2 outline-amber-400 z-10' 
           : selectedRecordId === row.id
           ? 'bg-[#e1dfdd] outline outline-1 outline-[#107c41] z-10'
+          : isMatch
+          ? 'bg-yellow-100'
           : 'hover:bg-blue-50/50'
       }`}
     >
-      <td className="border border-[#c8c6c4] bg-[#f3f2f1] text-center sticky left-0 z-20 w-8 p-0">
-          <input type="checkbox" checked={selectedRowIds.includes(row.id)} onChange={() => {
-              setSelectedRowIds(prev => prev.includes(row.id) ? prev.filter(id => id !== row.id) : [...prev, row.id]);
-          }}/>
-      </td>
-      {showRowNumbers && (
-        <td className="border border-[#c8c6c4] bg-[#f3f2f1] text-center text-gray-500 font-mono text-[10px] sticky left-[32px] group-hover:bg-[#e1dfdd] transition-colors z-10 w-10 h-full p-0">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <button 
-              onClick={() => deleteRecord(row.id)}
-              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute"
-              title="Delete Record"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-            <span className="group-hover:opacity-0 transition-opacity">{index + 1}</span>
-          </div>
-        </td>
-      )}
-      <td className="border border-[#c8c6c4] px-3 py-1.5 text-gray-600 text-xs">{row.id}</td>
-      <td className="border border-[#c8c6c4] px-3 py-1.5 text-gray-600 text-xs">{row.rowId}</td>
-      <td className="border border-[#c8c6c4] px-3 py-1.5 text-gray-600 text-xs text-center">{getByteSize(row.type, architecture)}</td>
-      <td className={`border border-[#c8c6c4] p-0 text-xs relative ${valueStyle}`}>
-         <input 
-          type="text" 
-          value={activeCellId === row.id ? row.value : displayValue}
-          onFocus={() => {
-              setActiveCellId(row.id);
-              setFormulaError(validateFormula(row.value));
-          }}
-          onBlur={() => {
-              setActiveCellId(null);
-              setFormulaError(null);
-              setSuggestion(null);
-          }}
-          onChange={(e) => handleFormulaChange(row.id, e.target.value)}
-          className={`w-full h-full min-h-[28px] px-3 font-mono font-medium bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-inset ${
-            (formulaError && activeCellId === row.id)
-              ? 'text-red-700 bg-red-50 focus:ring-red-600'
-              : (row.value.startsWith('=') && rawEvalVal === "0" && row.value !== "=0")
-              ? 'text-red-700 bg-red-50 focus:ring-red-600'
-              : 'text-blue-700 focus:ring-[#107c41]'
-          }`}
-        />
-        {activeCellId === row.id && suggestion && (
-            <div 
-                className="absolute top-7 left-0 bg-white border border-gray-300 p-1 text-[10px] text-gray-800 z-50 cursor-pointer hover:bg-gray-100" 
-                onClick={() => acceptSuggestion(row.id, row.value, suggestion)}
-            >
-                Click to accept: {suggestion}
-            </div>
-        )}
-        {activeCellId === row.id && formulaError && (
-            <div className="absolute top-7 left-0 bg-red-100 border border-red-300 p-1 text-[10px] text-red-700 z-50 w-full">{formulaError}</div>
-        )}
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50">
-        <input
-          type="text"
-          readOnly
-          value={hexValue}
-          className="w-full h-full min-h-[28px] px-3 font-mono text-purple-700 bg-transparent outline-none cursor-default"
-        />
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50">
-        <input
-          type="text"
-          readOnly
-          value={octalValue}
-          className="w-full h-full min-h-[28px] px-3 font-mono text-orange-700 bg-transparent outline-none cursor-default"
-        />
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50">
-        <input
-          type="text"
-          readOnly
-          value={binaryValue}
-          className="w-full h-full min-h-[28px] px-3 font-mono text-teal-700 tracking-widest bg-transparent outline-none cursor-default"
-        />
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs">
-         <input 
-          type="text" 
-          value={row.name}
-          onChange={(e) => updateRecord(row.id, 'name', e.target.value)}
-          className="w-full h-full min-h-[28px] px-3 font-medium text-gray-800 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-[#107c41]"
-        />
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs">
-        <select 
-          value={row.type}
-          onChange={(e) => updateRecord(row.id, 'type', e.target.value)}
-          className="w-full h-full min-h-[28px] px-2 text-[#107c41] bg-transparent outline-none focus:bg-white"
-        >
-          {DATA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs text-gray-600">
-        <select 
-           value={row.classStr}
-           onChange={(e) => updateRecord(row.id, 'classStr', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {CLASSES.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs italic text-gray-500">
-         <select 
-           value={row.structures}
-           onChange={(e) => updateRecord(row.id, 'structures', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {STRUCTURES.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs font-medium text-gray-700">
-          <select 
-           value={row.modules}
-           onChange={(e) => updateRecord(row.id, 'modules', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {MODULES.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs bg-gray-50/50">
-        <input
-          type="text"
-          readOnly
-          value={arrayValue}
-          className="w-full h-full min-h-[28px] px-3 font-mono text-gray-500 bg-transparent outline-none cursor-default"
-        />
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs font-mono text-pink-700">
-          <select 
-           value={row.functions}
-           onChange={(e) => updateRecord(row.id, 'functions', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {FUNCTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs font-medium text-indigo-700">
-          <select 
-           value={row.logic}
-           onChange={(e) => updateRecord(row.id, 'logic', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {LOGIC.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs font-mono text-gray-600">
-          <select 
-           value={row.configFiles}
-           onChange={(e) => updateRecord(row.id, 'configFiles', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {CONFIGS.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
-      <td className="border border-[#c8c6c4] p-0 text-xs text-gray-600">
-          <select 
-           value={row.storageLocation}
-           onChange={(e) => updateRecord(row.id, 'storageLocation', e.target.value)}
-           className="w-full h-full min-h-[28px] px-2 bg-transparent outline-none focus:bg-white"
-         >
-           {STORAGE_LOCATIONS.map(t => <option key={t} value={t}>{t}</option>)}
-         </select>
-      </td>
+      {columnOrder.map(col => <React.Fragment key={col}>{renderCell(col, row, index, hexValue, octalValue, binaryValue, arrayValue, valueStyle, displayValue)}</React.Fragment>)}
     </tr>
     );
   };
@@ -574,7 +527,7 @@ export default function Dashboard() {
     const csvRows = [];
     csvRows.push(headers.join(','));
     
-    for (const row of records) {
+    for (const row of filteredData) {
       const evalVal = evaluatedValues[row.id] || "0";
       const hexValue = `0x${BigInt(evalVal).toString(16).toUpperCase().padStart(Math.ceil(architecture/4), '0')}`;
       const octalValue = `0o${BigInt(evalVal).toString(8).padStart(Math.ceil(architecture/3), '0')}`;
@@ -583,20 +536,20 @@ export default function Dashboard() {
 
       const values = [
         row.id,
-        `"${row.value}"`,
+        `"${row.value.replace(/"/g, '""')}"`,
         evalVal,
         hexValue,
         octalValue,
         binaryValue,
         `"${row.name.replace(/"/g, '""')}"`,
-        `"${row.type}"`,
-        `"${row.classStr}"`,
-        `"${row.structures}"`,
-        `"${row.modules}"`,
+        `"${row.type.replace(/"/g, '""')}"`,
+        `"${row.classStr.replace(/"/g, '""')}"`,
+        `"${row.structures.replace(/"/g, '""')}"`,
+        `"${row.modules.replace(/"/g, '""')}"`,
         arrayValue,
-        `"${row.functions}"`,
-        `"${row.logic}"`,
-        `"${row.configFiles}"`
+        `"${row.functions.replace(/"/g, '""')}"`,
+        `"${row.logic.replace(/"/g, '""')}"`,
+        `"${row.configFiles.replace(/"/g, '""')}"`
       ];
       csvRows.push(values.join(','));
     }
@@ -776,6 +729,18 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center bg-white border border-gray-300 rounded px-2 w-full sm:w-auto text-xs shrink-0">
+            <span className="text-gray-400 mr-2 text-[10px] font-bold">DENSITY</span>
+            <select 
+              value={density} 
+              onChange={(e) => setDensity(e.target.value as 'Compact' | 'Comfortable' | 'Relaxed')}
+              className="bg-transparent text-xs outline-none py-1 cursor-pointer text-gray-600 shrink-0"
+            >
+              <option value="Compact">Compact</option>
+              <option value="Comfortable">Comfortable</option>
+              <option value="Relaxed">Relaxed</option>
+            </select>
+          </div>
+          <div className="flex items-center bg-white border border-gray-300 rounded px-2 w-full sm:w-auto text-xs shrink-0">
             <span className="text-gray-400 mr-2 text-[10px] font-bold">TYPE</span>
             <select 
               value={filterType} 
@@ -895,30 +860,7 @@ export default function Dashboard() {
           <table className="w-full border-collapse min-w-[max-content] bg-white excel-table">
           <thead className="bg-[#f3f2f1] border-b-2 border-[#c8c6c4] sticky top-0 z-10">
             <tr>
-              <th className="border border-[#c8c6c4] bg-[#f3f2f1] w-8 sticky left-0 z-20">
-                <input type="checkbox" onChange={(e) => {
-                    if (e.target.checked) setSelectedRowIds(filteredData.map(r => r.id));
-                    else setSelectedRowIds([]);
-                }} checked={filteredData.length > 0 && selectedRowIds.length === filteredData.length} />
-              </th>
-              {showRowNumbers && <th className="border border-[#c8c6c4] bg-[#f3f2f1] w-10 sticky left-[32px] z-20">#</th>}
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">ID</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Row ID</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Byte Size</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700 w-24">Dec Value</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Hexadecimal</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Octal</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Binary</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Name</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Type</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Class</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Structures</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Modules</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Array</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Functions</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Logic</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Config Files</th>
-              <th className="border border-[#c8c6c4] px-3 py-1.5 text-left text-xs font-semibold text-gray-700">Storage Location</th>
+              {columnOrder.map(col => <React.Fragment key={col}>{getHeaderDraggable(col)}</React.Fragment>)}
             </tr>
           </thead>
           <tbody className="text-gray-800">
@@ -926,7 +868,7 @@ export default function Dashboard() {
               Object.entries(groupedData as Record<string, DataRecord[]>).map(([groupName, rows]) => (
                 <React.Fragment key={groupName}>
                   <tr className="bg-gray-200">
-                    <td colSpan={18} className="px-3 py-2 font-bold text-xs cursor-pointer" onClick={() => setExpandedGroups(prev => ({...prev, [groupName]: !prev[groupName]}))}>
+                    <td colSpan={19} className="px-3 py-2 font-bold text-xs cursor-pointer" onClick={() => setExpandedGroups(prev => ({...prev, [groupName]: !prev[groupName]}))}>
                        {expandedGroups[groupName] ? '▼' : '▶'} {groupName} ({rows.length})
                     </td>
                   </tr>
@@ -938,7 +880,7 @@ export default function Dashboard() {
             )}
             {filteredData.length === 0 && (
               <tr>
-                <td colSpan={18} className="border border-[#c8c6c4] px-4 py-12 text-center text-gray-500 bg-white">
+                <td colSpan={19} className="border border-[#c8c6c4] px-4 py-12 text-center text-gray-500 bg-white">
                   <Database className="w-8 h-8 mx-auto text-gray-300 mb-3" />
                   <p className="text-base font-medium text-gray-600">No records found</p>
                   <p className="text-sm">Try adjusting your search criteria or add a new record.</p>
@@ -1054,6 +996,9 @@ export default function Dashboard() {
             <option value={64}>64-bit</option>
             <option value={96}>96-bit</option>
             <option value={128}>128-bit</option>
+            <option value={256}>256-bit</option>
+            <option value={512}>512-bit</option>
+            <option value={1024}>1024-bit</option>
           </select> Storage</span>
         </div>
       </div>

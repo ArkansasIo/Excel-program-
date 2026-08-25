@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { FileSpreadsheet, Lock } from 'lucide-react';
 
 export default function Login() {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -18,21 +18,10 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        login(data.user);
-        navigate('/');
-      } else {
-        setError(data.message || 'Invalid credentials');
-      }
-    } catch (err) {
-      setError('An error occurred during login');
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -56,12 +45,13 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">USERNAME</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">EMAIL</label>
             <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#107c41] focus:border-transparent text-sm"
+              required
             />
           </div>
           <div>
@@ -71,6 +61,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#107c41] focus:border-transparent text-sm"
+              required
             />
           </div>
           
@@ -89,9 +80,6 @@ export default function Login() {
             )}
           </button>
         </form>
-        <div className="mt-6 text-center text-xs text-gray-500">
-          Default credentials: <span className="font-mono bg-gray-100 border border-gray-200 px-1 py-0.5 rounded">admin</span> / <span className="font-mono bg-gray-100 border border-gray-200 px-1 py-0.5 rounded">password</span>
-        </div>
       </div>
     </div>
   );
